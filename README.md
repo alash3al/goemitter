@@ -20,7 +20,7 @@ i'm on [twitter](https://www.twitter.com/m7medalash3al), [facebook](https://www.
 package main
 
 import(
-	"fmt
+	"fmt"
 	"github.com/alash3al/goemitter"
 )
 
