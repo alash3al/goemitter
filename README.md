@@ -19,11 +19,10 @@ i'm on [twitter](https://www.twitter.com/m7medalash3al), [facebook](https://www.
 ```go
 package main
 
-// or if you installed it in "$GOPATH"
-import("goemitter")
-
-// we need the fmt for examples
-import("fmt")
+import(
+	"fmt
+	"github.com/alash3al/goemitter"
+)
 
 func main(){
 
