@@ -11,9 +11,7 @@ i'm on [twitter](https://www.twitter.com/m7medalash3al), [facebook](https://www.
  # Installation
 ============
 
-* Just download the folder called `emitter` 
-* Save it to your project directory 
-* Or install it in your `$GOPATH`
+`go get github.com/alash3al/goemitter`
 
  # Learn By Examples ?
 ====================
@@ -21,12 +19,8 @@ i'm on [twitter](https://www.twitter.com/m7medalash3al), [facebook](https://www.
 ```go
 package main
 
-// import it from your installation path
-// i.e, if you installed it in your project directory, then :
-import("./emitter")
-
 // or if you installed it in "$GOPATH"
-import("emitter")
+import("goemitter")
 
 // we need the fmt for examples
 import("fmt")
