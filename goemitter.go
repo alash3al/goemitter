@@ -4,62 +4,72 @@
 // Version: v1.0.0
 package Emitter
 
+import "sync"
+
 // Emitter - our listeners container
 type Emitter struct {
-	listeners	map[interface{}][]Listener
+	listeners map[interface{}][]Listener
+	mutex     *sync.Mutex
 }
 
 // Listener - our callback container and whether it will run once or not
 type Listener struct {
-	callback	func(...interface{})
-	once		bool
+	callback func(...interface{})
+	once     bool
 }
 
 // Construct() - create a new instance of Emitter
 func Construct() *Emitter {
-	emitter := new(Emitter)
-	emitter.listeners = make(map[interface{}][]Listener)
-	return emitter
+	return &Emitter{
+		make(map[interface{}][]Listener),
+		&sync.Mutex{},
+	}
 }
 
 // Destruct() - free memory from an emitter instance
-func(self *Emitter) Destruct() {
+func (self *Emitter) Destruct() {
 	self = nil
-} 
+}
 
 // AddListener() - register a new listener on the specified event
-func(self *Emitter) AddListener(event string, callback func(...interface{})) *Emitter {
+func (self *Emitter) AddListener(event string, callback func(...interface{})) *Emitter {
 	return self.On(event, callback)
 }
 
 // On() - register a new listener on the specified event
-func(self *Emitter) On(event string, callback func(...interface{})) *Emitter {
-	if _, ok := self.listeners[event]; ! ok {
+func (self *Emitter) On(event string, callback func(...interface{})) *Emitter {
+	self.mutex.Lock()
+	if _, ok := self.listeners[event]; !ok {
 		self.listeners[event] = []Listener{}
 	}
 	self.listeners[event] = append(self.listeners[event], Listener{callback, false})
+	self.mutex.Unlock()
+
 	self.EmitSync("newListener", []interface{}{event, callback})
 	return self
 }
 
 // Once() - register a new one-time listener on the specified event
-func(self *Emitter) Once(event string, callback func(...interface{})) *Emitter {
-	if _, ok := self.listeners[event]; ! ok {
+func (self *Emitter) Once(event string, callback func(...interface{})) *Emitter {
+	self.mutex.Lock()
+	if _, ok := self.listeners[event]; !ok {
 		self.listeners[event] = []Listener{}
 	}
 	self.listeners[event] = append(self.listeners[event], Listener{callback, true})
+	self.mutex.Unlock()
+
 	self.EmitSync("newListener", []interface{}{event, callback})
 	return self
 }
 
 // RemoveListeners() - remove the specified callback from the specified events' listeners
-func(self *Emitter) RemoveListener(event string, callback func(...interface{})) *Emitter {
-	if _, ok := self.listeners[event]; ! ok {
+func (self *Emitter) RemoveListener(event string, callback func(...interface{})) *Emitter {
+	if _, ok := self.listeners[event]; !ok {
 		return self
 	}
-	for k,v := range(self.listeners[event]) {
+	for k, v := range self.listeners[event] {
 		if &v.callback == &callback {
-			self.listeners[event] = append(self.listeners[event][:k], self.listeners[event][k + 1:]...)
+			self.listeners[event] = append(self.listeners[event][:k], self.listeners[event][k+1:]...)
 			self.EmitSync("removeListener", []interface{}{event, callback})
 			return self
 		}
@@ -68,12 +78,15 @@ func(self *Emitter) RemoveListener(event string, callback func(...interface{})) 
 }
 
 // RemoveAllListeners() - remove all listeners from (all/event)
-func(self *Emitter) RemoveAllListeners(event interface{}) *Emitter {
+func (self *Emitter) RemoveAllListeners(event interface{}) *Emitter {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+
 	if event == nil {
 		self.listeners = make(map[interface{}][]Listener)
 		return self
 	}
-	if _, ok := self.listeners[event]; ! ok {
+	if _, ok := self.listeners[event]; !ok {
 		return self
 	}
 	delete(self.listeners, event)
@@ -81,32 +94,37 @@ func(self *Emitter) RemoveAllListeners(event interface{}) *Emitter {
 }
 
 // Listeners() - return an array with the registered listeners in the specified event
-func(self *Emitter) Listeners(event string) []Listener {
-	if _, ok := self.listeners[event]; ! ok {
+func (self *Emitter) Listeners(event string) []Listener {
+	if _, ok := self.listeners[event]; !ok {
 		return nil
 	}
 	return self.listeners[event]
 }
 
 // ListenersCount() - return the count of listeners in the speicifed event
-func(self *Emitter) ListenersCount(event string) int {
+func (self *Emitter) ListenersCount(event string) int {
 	return len(self.Listeners(event))
 }
 
 // EmitSync() - run all listeners of the specified event in synchronous mode
-func(self *Emitter) EmitSync(event string, args ...interface{}) *Emitter {
-	for _,v := range(self.Listeners(event)) {
+func (self *Emitter) EmitSync(event string, args ...interface{}) *Emitter {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+	for _, v := range self.Listeners(event) {
 		if v.once {
 			self.RemoveListener(event, v.callback)
 		}
 		v.callback(args...)
 	}
+
 	return self
 }
 
 // EmitAsync() - run all listeners of the specified event in asynchronous mode using goroutines
-func(self *Emitter) EmitAsync(event string, args []interface{}) *Emitter {
-	for _,v := range(self.Listeners(event)) {
+func (self *Emitter) EmitAsync(event string, args []interface{}) *Emitter {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+	for _, v := range self.Listeners(event) {
 		if v.once {
 			self.RemoveListener(event, v.callback)
 		}
