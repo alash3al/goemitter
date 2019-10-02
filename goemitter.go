@@ -4,7 +4,10 @@
 // Version: v1.0.0
 package Emitter
 
-import "sync"
+import (
+	"reflect"
+	"sync"
+)
 
 // Emitter - our listeners container
 type Emitter struct {
@@ -64,13 +67,19 @@ func (self *Emitter) Once(event string, callback func(...interface{})) *Emitter 
 
 // RemoveListeners() - remove the specified callback from the specified events' listeners
 func (self *Emitter) RemoveListener(event string, callback func(...interface{})) *Emitter {
+	return self.removeListenerInternal(event, callback, false)
+}
+
+func (self *Emitter) removeListenerInternal(event string, callback func(...interface{}), suppress bool) *Emitter {
 	if _, ok := self.listeners[event]; !ok {
 		return self
 	}
 	for k, v := range self.listeners[event] {
-		if &v.callback == &callback {
+		if reflect.ValueOf(v.callback).Pointer() == reflect.ValueOf(callback).Pointer() {
 			self.listeners[event] = append(self.listeners[event][:k], self.listeners[event][k+1:]...)
-			self.EmitSync("removeListener", []interface{}{event, callback})
+			if !suppress {
+				self.EmitSync("removeListener", []interface{}{event, callback})
+			}
 			return self
 		}
 	}
@@ -112,7 +121,7 @@ func (self *Emitter) EmitSync(event string, args ...interface{}) *Emitter {
 	defer self.mutex.Unlock()
 	for _, v := range self.Listeners(event) {
 		if v.once {
-			self.RemoveListener(event, v.callback)
+			self.removeListenerInternal(event, v.callback, true)
 		}
 		v.callback(args...)
 	}
@@ -126,7 +135,7 @@ func (self *Emitter) EmitAsync(event string, args []interface{}) *Emitter {
 	defer self.mutex.Unlock()
 	for _, v := range self.Listeners(event) {
 		if v.once {
-			self.RemoveListener(event, v.callback)
+			self.removeListenerInternal(event, v.callback, true)
 		}
 		go v.callback(args...)
 	}
